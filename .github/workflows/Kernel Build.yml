@@ -28,18 +28,28 @@ on:
         description: 'AnyKernel Url (leave blank if you dont want AnyKernel)'
         required: false
         default: 'https://github.com/itisFarzin/AnyKernel3'
+      CLANG_VERSION:
+        type: choice
+        description: Choose Clang Version
+        options: 
+        - 18
+        - 17
+        - 16
+        - 15
+        - 14
+        - 13
+        - 12
+        - 11
+        - 10
+        - 9
 
 jobs:
   build:
     if: github.event.repository.owner.id == github.event.sender.id
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
- 
-    # You might want to Checkout your repo first, but not mandatory
-    - name: Check Out
-      uses: actions/checkout@v3
 
     - name: Initialize workspace
       run: |
@@ -57,18 +67,20 @@ jobs:
 
     - name: Prepare the build environment
       run: |
-        git clone https://github.com/pkm774/android-kernel-tools tools
-        echo "tools-folder=$(pwd)/tools" >> $GITHUB_OUTPUT
+        sudo apt-get install flex
+        git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b android-msm-redbull-4.19-android14 --depth=1
+        git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 -b android-msm-redbull-4.19-android14 --depth=1
+        wget https://apt.llvm.org/llvm.sh
+        chmod u+x llvm.sh
+        sudo ./llvm.sh ${{ github.event.inputs.CLANG_VERSION }}
+        echo "tools-folder=$(pwd)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.workspace.outputs.workspace-folder }}
       id: tools
 
     - name: Clone kernel source
       run: |
-        git clone --depth=1 -j $(nproc) ${{ github.event.inputs.KERNEL_TREE }} -b ${{ github.event.inputs.KERNEL_TREE_BRANCH }} kernel_tree
-        cd kernel_tree
-        [ -f ".gitmodules" ] && sed -i 's,git@github.com:,https://github.com/,g' .gitmodules
-        git submodule update --init
-        echo "kernel-folder=$(pwd)" >> $GITHUB_OUTPUT
+        git clone --depth=1 ${{ github.event.inputs.KERNEL_TREE }} -b ${{ github.event.inputs.KERNEL_TREE_BRANCH }} kernel_tree
+        echo "kernel-folder=$(pwd)/kernel_tree" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.workspace.outputs.workspace-folder }}
       id: kernel
 
@@ -88,10 +100,8 @@ jobs:
 
     - name: Building kernel
       run: |
-        export PATH="${{ steps.tools.outputs.tools-folder }}/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin:$PATH"
-        export PATH="${{ steps.tools.outputs.tools-folder }}/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin:$PATH"
-        export PATH="${{ steps.tools.outputs.tools-folder }}/clang/host/linux-x86/clang-r428724/bin:$PATH"
-        export LD_LIBRARY_PATH="${{ steps.tools.outputs.tools-folder }}/clang/host/linux-x86/clang-r428724/lib64:$LD_LIBRARY_PATH"
+        export PATH="${{ steps.tools.outputs.tools-folder }}/aarch64-linux-android-4.9/bin:$PATH"
+        export PATH="${{ steps.tools.outputs.tools-folder }}/arm-linux-androideabi-4.9/bin:$PATH"
         
         export ARCH=arm64
         export SUBARCH=ARM64
@@ -99,8 +109,8 @@ jobs:
         export CROSS_COMPILE=aarch64-linux-android-
         export CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
-        make O=out clean mrproper CC=clang ${{ github.event.inputs.DEVICE_CODENAME }}_defconfig
-        make O=out CC=clang -j$(nproc --all)
+        make O=out clean mrproper CC=clang-${{ github.event.inputs.CLANG_VERSION }} ${{ github.event.inputs.DEVICE_CODENAME }}_defconfig
+        make O=out CC=clang-${{ github.event.inputs.CLANG_VERSION }} -j$(nproc --all)
         echo "elapsed_time=$(echo "$(date +%s)"-"${{ steps.workspace.outputs.start_time }}" | bc)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.kernel.outputs.kernel-folder }}
       id: build
@@ -109,10 +119,12 @@ jobs:
       if: ${{ success() && github.event.inputs.ANYKERNEL_URL != '' }}
       continue-on-error: true
       run: |
-        git clone --recursive --depth=1 -j $(nproc) ${{ github.event.inputs.ANYKERNEL_URL }} AnyKernel3
+        git clone --recursive --depth=1 ${{ github.event.inputs.ANYKERNEL_URL }} AnyKernel3
 
         if [ -e "Image.gz-dtb" ]; then
-          cp -f Image.gz-dtb AnyKernel3/
+          cp -f Image.gz-dtb AnyKernel3
+        elif [ -e "Image.gz" ]; then
+          cp -f Image.gz AnyKernel3
         fi
         
         cd AnyKernel3
@@ -134,7 +146,7 @@ jobs:
       if: ${{ success() && github.event.inputs.ANYKERNEL_URL != '' }}
       with:
         name: FlashableKernel.zip
-        path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/FlashableKernel.zip
+        path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/AnyKernel3/
     
     - name: Send Telegram notification for success
       uses: appleboy/telegram-action@master
