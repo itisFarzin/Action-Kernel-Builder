@@ -32,16 +32,16 @@ on:
         type: choice
         description: Choose Clang Version
         options: 
-        - 18
-        - 17
-        - 16
-        - 15
-        - 14
-        - 13
-        - 12
-        - 11
-        - 10
-        - 9
+        - '18'
+        - '17'
+        - '16'
+        - '15'
+        - '14'
+        - '13'
+        - '12'
+        - '11'
+        - '10'
+        - '9'
 
 jobs:
   build:
@@ -55,6 +55,7 @@ jobs:
       run: |
         mkdir workspace
         cd workspace
+
         echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
         echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
         echo "kernelsu=${{ fromJSON('["No", "Yes"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}" >> $GITHUB_OUTPUT
@@ -68,11 +69,14 @@ jobs:
     - name: Prepare the build environment
       run: |
         sudo apt-get install flex
+        
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b android-msm-redbull-4.19-android14 --depth=1
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 -b android-msm-redbull-4.19-android14 --depth=1
+
         wget https://apt.llvm.org/llvm.sh
         chmod u+x llvm.sh
         sudo ./llvm.sh ${{ github.event.inputs.CLANG_VERSION }}
+
         echo "tools-folder=$(pwd)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.workspace.outputs.workspace-folder }}
       id: tools
@@ -80,6 +84,7 @@ jobs:
     - name: Clone kernel source
       run: |
         git clone --depth=1 ${{ github.event.inputs.KERNEL_TREE }} -b ${{ github.event.inputs.KERNEL_TREE_BRANCH }} kernel_tree
+
         echo "kernel-folder=$(pwd)/kernel_tree" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.workspace.outputs.workspace-folder }}
       id: kernel
@@ -102,7 +107,7 @@ jobs:
       run: |
         export PATH="${{ steps.tools.outputs.tools-folder }}/aarch64-linux-android-4.9/bin:$PATH"
         export PATH="${{ steps.tools.outputs.tools-folder }}/arm-linux-androideabi-4.9/bin:$PATH"
-        
+
         export ARCH=arm64
         export SUBARCH=ARM64
         export CLANG_TRIPLE=aarch64-linux-gnu-
@@ -111,6 +116,7 @@ jobs:
 
         make O=out clean mrproper CC=clang-${{ github.event.inputs.CLANG_VERSION }} ${{ github.event.inputs.DEVICE_CODENAME }}_defconfig
         make O=out CC=clang-${{ github.event.inputs.CLANG_VERSION }} -j$(nproc --all)
+
         echo "elapsed_time=$(echo "$(date +%s)"-"${{ steps.workspace.outputs.start_time }}" | bc)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.kernel.outputs.kernel-folder }}
       id: build
@@ -126,10 +132,9 @@ jobs:
         elif [ -e "Image.gz" ]; then
           cp -f Image.gz AnyKernel3
         fi
-        
+
         cd AnyKernel3
         zip -q -r "FlashableKernel.zip" *
-        mv FlashableKernel.zip ../
       working-directory: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/
 
     - name: Check the output directory before uploading
