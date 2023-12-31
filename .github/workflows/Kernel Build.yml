@@ -148,7 +148,7 @@ jobs:
       if: ${{ success() && github.event.inputs.ANYKERNEL_URL != '' }}
       with:
         name: FlashableKernel.zip
-        path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/
+        path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/FlashableKernel.zip
     
     - name: Send Telegram notification for success
       uses: appleboy/telegram-action@master
