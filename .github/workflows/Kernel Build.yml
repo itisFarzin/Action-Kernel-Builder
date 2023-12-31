@@ -1,5 +1,3 @@
-# This is a basic workflow to help you get started with Actions
-
 name: Kernel Build
 
 on:
@@ -32,16 +30,13 @@ on:
         type: choice
         description: Choose Clang Version
         options: 
-        - '18'
-        - '17'
-        - '16'
-        - '15'
-        - '14'
-        - '13'
-        - '12'
-        - '11'
-        - '10'
-        - '9'
+        - 'clang-3289846'
+        - 'clang-r450784e'
+        - 'clang-r475365b'
+        - 'clang-r487747c'
+        - 'clang-r498229b'
+        - 'clang-r510928'
+        - 'clang-stable'
 
 jobs:
   build:
@@ -72,10 +67,10 @@ jobs:
         
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b android-msm-redbull-4.19-android14 --depth=1
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 -b android-msm-redbull-4.19-android14 --depth=1
-
-        wget https://apt.llvm.org/llvm.sh
-        chmod u+x llvm.sh
-        sudo ./llvm.sh ${{ github.event.inputs.CLANG_VERSION }}
+        
+        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/${{ github.event.inputs.CLANG_VERSION }}.tar.gz -O clang.tar.gz
+        mkdir clang
+        tar -xf clang.tar.gz -C clang
 
         echo "tools-folder=$(pwd)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.workspace.outputs.workspace-folder }}
@@ -107,6 +102,7 @@ jobs:
       run: |
         export PATH="${{ steps.tools.outputs.tools-folder }}/aarch64-linux-android-4.9/bin:$PATH"
         export PATH="${{ steps.tools.outputs.tools-folder }}/arm-linux-androideabi-4.9/bin:$PATH"
+        export PATH="${{ steps.tools.outputs.tools-folder }}/clang/bin:$PATH"
 
         export ARCH=arm64
         export SUBARCH=ARM64
@@ -114,8 +110,8 @@ jobs:
         export CROSS_COMPILE=aarch64-linux-android-
         export CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
-        make O=out clean mrproper CC=clang-${{ github.event.inputs.CLANG_VERSION }} ${{ github.event.inputs.DEVICE_CODENAME }}_defconfig
-        make O=out CC=clang-${{ github.event.inputs.CLANG_VERSION }} -j$(nproc --all)
+        make O=out clean mrproper CC=clang ${{ github.event.inputs.DEVICE_CODENAME }}_defconfig
+        make O=out CC=clang -j$(nproc --all)
 
         echo "elapsed_time=$(echo "$(date +%s)"-"${{ steps.workspace.outputs.start_time }}" | bc)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.kernel.outputs.kernel-folder }}
@@ -135,6 +131,7 @@ jobs:
 
         cd AnyKernel3
         zip -q -r "FlashableKernel.zip" *
+        mv FlashableKernel.zip ../
       working-directory: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/
 
     - name: Check the output directory before uploading
@@ -151,7 +148,7 @@ jobs:
       if: ${{ success() && github.event.inputs.ANYKERNEL_URL != '' }}
       with:
         name: FlashableKernel.zip
-        path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/AnyKernel3/
+        path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/
     
     - name: Send Telegram notification for success
       uses: appleboy/telegram-action@master
@@ -170,7 +167,7 @@ jobs:
           <b>Kernel Tree Branch</b>: ${{ github.event.inputs.KERNEL_TREE_BRANCH }}
           <b>KernelSU</b>: ${{ steps.workspace.outputs.kernelsu }}
           <b>Action</b>: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        document: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/AnyKernel3/FlashableKernel.zip
+        document: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/FlashableKernel.zip
         format: html
 
     - name: Send Telegram notification for failure
