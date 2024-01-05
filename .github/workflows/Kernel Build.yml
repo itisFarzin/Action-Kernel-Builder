@@ -36,7 +36,6 @@ on:
         - 'clang-r487747c'
         - 'clang-r498229b'
         - 'clang-r510928'
-        - 'clang-stable'
 
 jobs:
   build:
@@ -64,6 +63,7 @@ jobs:
     - name: Prepare the build environment
       run: |
         sudo apt-get install flex
+        sudo apt-get install libncurses5
         
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b android-msm-redbull-4.19-android14 --depth=1
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 -b android-msm-redbull-4.19-android14 --depth=1
@@ -103,6 +103,8 @@ jobs:
         export PATH="${{ steps.tools.outputs.tools-folder }}/aarch64-linux-android-4.9/bin:$PATH"
         export PATH="${{ steps.tools.outputs.tools-folder }}/arm-linux-androideabi-4.9/bin:$PATH"
         export PATH="${{ steps.tools.outputs.tools-folder }}/clang/bin:$PATH"
+        export LD_LIBRARY_PATH="${{ steps.tools.outputs.tools-folder }}/clang/lib64:$LD_LIBRARY_PATH"
+        export LD_LIBRARY_PATH="${{ steps.tools.outputs.tools-folder }}/clang/lib:$LD_LIBRARY_PATH"
 
         export ARCH=arm64
         export SUBARCH=ARM64
