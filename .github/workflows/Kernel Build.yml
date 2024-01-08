@@ -26,6 +26,10 @@ on:
         description: 'AnyKernel Url (leave blank if you dont want AnyKernel)'
         required: false
         default: 'https://github.com/itisFarzin/AnyKernel3'
+      ANYKERNEL_BRANCH:
+        description: 'AnyKernel Branch'
+        required: false
+        default: 'platina'
       CLANG_VERSION:
         type: choice
         description: Choose Clang Version
@@ -85,7 +89,7 @@ jobs:
       id: kernel
 
     - name: Adding KernelSU
-      if: ${{ github.event.inputs.ENABLE_KERNELSU }}
+      if: ${{ github.event.inputs.ENABLE_KERNELSU != 'false' }}
       run: |
         # Delete old KernelSU
         if [ -d "KernelSU" ]; then
@@ -123,7 +127,7 @@ jobs:
       if: ${{ success() && github.event.inputs.ANYKERNEL_URL != '' }}
       continue-on-error: true
       run: |
-        git clone --recursive --depth=1 ${{ github.event.inputs.ANYKERNEL_URL }} AnyKernel3
+        git clone --recursive --depth=1 ${{ github.event.inputs.ANYKERNEL_URL }} -b ${{ github.event.inputs.ANYKERNEL_BRANCH }} AnyKernel3
 
         if [ -e "Image.gz-dtb" ]; then
           cp -f Image.gz-dtb AnyKernel3
