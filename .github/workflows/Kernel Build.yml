@@ -68,7 +68,7 @@ jobs:
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b android-msm-redbull-4.19-android14 --depth=1
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 -b android-msm-redbull-4.19-android14 --depth=1
         
-        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/${{ github.event.inputs.CLANG_VERSION }}.tar.gz -O clang.tar.gz
+        wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/${{ github.event.inputs.CLANG_VERSION }}.tar.gz -O clang.tar.gz
         mkdir clang
         tar -xf clang.tar.gz -C clang
 
@@ -145,6 +145,12 @@ jobs:
       with:
         name: Image.gz-dtb
         path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image.gz-dtb
+
+    - uses: actions/upload-artifact@v3
+      if: ${{ success() }}
+      with:
+        name: Image.gz
+        path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image.gz
 
     - uses: actions/upload-artifact@v3
       if: ${{ success() && github.event.inputs.ANYKERNEL_URL != '' }}
