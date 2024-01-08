@@ -9,15 +9,15 @@ on:
       KERNEL_TREE:
         description: 'Kernel Tree'
         required: true
-        default: 'https://github.com/itisFarzin/android_kernel_xiaomi_southwest-4.19'
+        default: 'https://github.com/itisFarzin/kernel_daria_mt6877'
       KERNEL_TREE_BRANCH:
         description: 'Kernel Tree Branch'
         required: true
-        default: 'main'
+        default: 'zahedan-t-oss'
       DEVICE_CODENAME:
         description: 'Device CodeName'
         required: true
-        default: 'platina'
+        default: 'k6877v1_64_k419'
       ENABLE_KERNELSU:
         description: 'Enable KernelSU'
         type: boolean
@@ -29,17 +29,7 @@ on:
       ANYKERNEL_BRANCH:
         description: 'AnyKernel Branch'
         required: false
-        default: 'platina'
-      CLANG_VERSION:
-        type: choice
-        description: Choose Clang Version
-        options: 
-        - 'clang-3289846'
-        - 'clang-r450784e'
-        - 'clang-r475365b'
-        - 'clang-r487747c'
-        - 'clang-r498229b'
-        - 'clang-r510928'
+        default: 'zahedan'
 
 jobs:
   build:
@@ -72,10 +62,8 @@ jobs:
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b android-msm-redbull-4.19-android14 --depth=1
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 -b android-msm-redbull-4.19-android14 --depth=1
         
-        wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/${{ github.event.inputs.CLANG_VERSION }}.tar.gz -O clang.tar.gz
-        mkdir clang
-        tar -xf clang.tar.gz -C clang
-
+        git clone https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r416183b clang
+        
         echo "tools-folder=$(pwd)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.workspace.outputs.workspace-folder }}
       id: tools
@@ -113,11 +101,12 @@ jobs:
         export ARCH=arm64
         export SUBARCH=ARM64
         export CLANG_TRIPLE=aarch64-linux-gnu-
-        export CROSS_COMPILE=aarch64-linux-android-
+        export CROSS_COMPILE=aarch64-linux-gnu-
         export CROSS_COMPILE_ARM32=arm-linux-androideabi-
+        export CROSS_COMPILE_COMPAT=arm-linux-androideabi-
 
-        make O=out clean mrproper CC=clang ${{ github.event.inputs.DEVICE_CODENAME }}_defconfig
-        make O=out CC=clang -j$(nproc --all)
+        make O=out ${{ github.event.inputs.DEVICE_CODENAME }}_defconfig LLVM=1 CC=clang LLVM_IAS=1 LD=ld.lld HOSTLD=ld.lld HOSTLDFLAGS=-fuse-ld=lld
+        make O=out CC=clang -j$(nproc --all) HOSTCC=${{ steps.tools.outputs.tools-folder }}/clang/bin/clang HOSTCXX=${{ steps.tools.outputs.tools-folder }}/clang/bin/clang++ LD=${{ steps.tools.outputs.tools-folder }}/clang/bin/ld.lld AR=${{ steps.tools.outputs.tools-folder }}/clang/bin/llvm-ar LLVM=1 LLVM_IAS=1 CC=" clang --cuda-path=/dev/null"
 
         echo "elapsed_time=$(echo "$(date +%s)"-"${{ steps.workspace.outputs.start_time }}" | bc)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.kernel.outputs.kernel-folder }}
