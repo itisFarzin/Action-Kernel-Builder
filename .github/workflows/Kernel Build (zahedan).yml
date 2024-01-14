@@ -6,14 +6,6 @@ on:
       BUILD_TITLE:
         description: 'Custom Build Title'
         required: false
-      SEND_NOTIFICATION:
-        description: 'Send Notification'
-        type: boolean
-        default: true
-      ENABLE_KERNELSU:
-        description: 'KernelSU'
-        type: boolean
-        default: true
       KERNEL_TREE:
         description: 'Kernel Tree'
         default: 'https://github.com/itisFarzin/kernel_daria_mt6877'
@@ -34,6 +26,14 @@ on:
         description: 'AnyKernel Branch (defaults to codename)'
         default: 'zahedan'
         required: false
+      SEND_NOTIFICATION:
+        description: 'Send Notification'
+        type: boolean
+        default: true
+      ENABLE_KERNELSU:
+        description: 'KernelSU'
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -42,6 +42,17 @@ jobs:
     permissions:
       contents: write
     steps:
+    
+    - name: Display User Inputs
+      run: |
+        echo "::group::User Environment Variables"
+        echo "Custom Build Title: ${{ github.event.inputs.BUILD_TITLE }}"
+        echo "Kernel Tree: ${{ github.event.inputs.KERNEL_TREE }}/tree/${{ github.event.inputs.KERNEL_TREE_BRANCH }}"
+        echo "Codename: ${{ github.event.inputs.CODENAME }}"
+        echo "AnyKernel Url: ${{ github.event.inputs.ANYKERNEL_URL }}/tree/${{ github.event.inputs.ANYKERNEL_BRANCH }}"
+        echo "Send Notification: ${{ fromJSON('["No", "Yes"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}
+        echo "KernelSU: ${{ fromJSON('["No", "Yes"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}
+        echo "::endgroup::"
 
     - name: Initialize workspace
       run: |
@@ -135,7 +146,7 @@ jobs:
           cp -f Image.gz AnyKernel3
         fi
 
-        name=FlashableKernel${{ fromJSON('["", "-KSU"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}.zip
+        name=FlashableKernel-${{ github.event.inputs.CODENAME }}${{ fromJSON('["", "-KSU"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}.zip
 
         cd AnyKernel3
         zip -q -r $name *

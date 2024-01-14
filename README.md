@@ -2,6 +2,10 @@
 
 ## Release Notes
 ```
+= 2024/01/14
+- Adding a step to showing user inputs
+- User input arranged
+- Codename in the name of the flashable zip
 = 2024/01/12
 - The first available version is submitted.
 ```
