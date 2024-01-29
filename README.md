@@ -2,11 +2,15 @@
 
 ## Release Notes
 ```
-= 2024/01/14
+= 2024/01/29 - V1.2
+- correcting the path of flashable zip in action artifact
+- adding option to upload outputs into a release instead of artifact
+- add continue on error for "Send Telegram notification for failure" when it get failed to not getting failed run
+= 2024/01/14 - V1.1
 - Adding a step to showing user inputs
 - User input arranged
 - Codename in the name of the flashable zip
-= 2024/01/12
+= 2024/01/12 - V1
 - The first available version is submitted.
 ```
 -----
