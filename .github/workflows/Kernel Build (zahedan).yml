@@ -14,16 +14,24 @@ on:
         description: 'Kernel Tree Branch'
         required: true
         default: 'zahedan-ksu'
-      CODENAME:
-        description: 'Phone Codename'
+      DEFCONFIG_LOCATION:
+        description: 'Defconfig location'
+        default: 'vendor'
+        required: false
+      DEFCONFIG_NAME:
+        description: 'Defconfig name'
         default: 'k6877v1_64_k419'
+        required: true
+      DEVICE_CODENAME:
+        description: 'Device Codename'
+        default: 'zahedan'
         required: true
       ANYKERNEL_URL:
         description: 'AnyKernel Url (leave blank if you dont want AnyKernel)'
         default: 'https://github.com/itisFarzin/AnyKernel3'
         required: false
       ANYKERNEL_BRANCH:
-        description: 'AnyKernel Branch (defaults to codename)'
+        description: 'AnyKernel Branch (defaults to device codename)'
         default: 'zahedan'
         required: false
       SEND_NOTIFICATION:
@@ -34,8 +42,8 @@ on:
         description: 'KernelSU'
         type: boolean
         default: true
-      UPLOAD_TO_RELEASE:
-        description: 'Upload to release'
+      PUSH_TO_RELEASES:
+        description: 'Push to releases'
         type: boolean
         default: false
 
@@ -52,7 +60,7 @@ jobs:
         echo "::group::User Environment Variables"
         echo "Custom Build Title: ${{ github.event.inputs.BUILD_TITLE }}"
         echo "Kernel Tree: ${{ github.event.inputs.KERNEL_TREE }}/tree/${{ github.event.inputs.KERNEL_TREE_BRANCH }}"
-        echo "Codename: ${{ github.event.inputs.CODENAME }}"
+        echo "Device Codename: ${{ github.event.inputs.DEVICE_CODENAME }}"
         echo "AnyKernel Url: ${{ github.event.inputs.ANYKERNEL_URL }}/tree/${{ github.event.inputs.ANYKERNEL_BRANCH }}"
         echo "Send Notification: ${{ fromJSON('["No", "Yes"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}
         echo "KernelSU: ${{ fromJSON('["No", "Yes"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}
@@ -67,7 +75,7 @@ jobs:
         echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
         echo "kernelsu=${{ fromJSON('["No", "Yes"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}" >> $GITHUB_OUTPUT
         if [[ -z "${{ github.event.inputs.BUILD_TITLE }}" ]]; then
-          echo "build_title=${{ github.event.inputs.CODENAME }}" >> $GITHUB_OUTPUT
+          echo "build_title=${{ github.event.inputs.DEVICE_CODENAME }}" >> $GITHUB_OUTPUT
         else
           echo "build_title=${{ github.event.inputs.BUILD_TITLE }}" >> $GITHUB_OUTPUT
         fi
@@ -111,6 +119,7 @@ jobs:
 
     - name: Building kernel
       run: |
+        if [ -d $DEFCONFIG_NAME ]; then location=""; else location="${{ github.event.inputs.DEFCONFIG_LOCATION }}/"; fi;
         export PATH="${{ steps.tools.outputs.tools-folder }}/aarch64-linux-android-4.9/bin:$PATH"
         export PATH="${{ steps.tools.outputs.tools-folder }}/arm-linux-androideabi-4.9/bin:$PATH"
         export PATH="${{ steps.tools.outputs.tools-folder }}/clang/bin:$PATH"
@@ -123,10 +132,10 @@ jobs:
         export CROSS_COMPILE=aarch64-linux-gnu-
         export CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
-        export KBUILD_BUILD_USER="itisFarzin"
-        export KBUILD_BUILD_HOST="Github"
+        export KBUILD_BUILD_USER=itisFarzin
+        export KBUILD_BUILD_HOST=Github
 
-        make O=out CC=clang ${{ github.event.inputs.CODENAME }}_defconfig LLVM=1 LLVM_IAS=1 LD=ld.lld HOSTLD=ld.lld HOSTLDFLAGS=-fuse-ld=lld
+        make O=out CC=clang $location${{ github.event.inputs.DEFCONFIG_NAME }}_defconfig LLVM=1 LLVM_IAS=1 LD=ld.lld HOSTLD=ld.lld HOSTLDFLAGS=-fuse-ld=lld
         make O=out CC=clang -j$(nproc --all) HOSTCC=${{ steps.tools.outputs.tools-folder }}/clang/bin/clang HOSTCXX=${{ steps.tools.outputs.tools-folder }}/clang/bin/clang++ LD=${{ steps.tools.outputs.tools-folder }}/clang/bin/ld.lld AR=${{ steps.tools.outputs.tools-folder }}/clang/bin/llvm-ar LLVM=1 LLVM_IAS=1 CC=" clang --cuda-path=/dev/null"
 
         echo "elapsed_time=$(echo "$(date +%s)"-"${{ steps.workspace.outputs.start_time }}" | bc)" >> $GITHUB_OUTPUT
@@ -138,7 +147,7 @@ jobs:
       continue-on-error: true
       run: |
         if [[ -z "${{ github.event.inputs.ANYKERNEL_BRANCH }}" ]]; then
-          anykernel_branch=${{ github.event.inputs.CODENAME }}
+          anykernel_branch=${{ github.event.inputs.DEVICE_CODENAME }}
         else
           anykernel_branch=${{ github.event.inputs.ANYKERNEL_BRANCH }}
         fi
@@ -150,7 +159,7 @@ jobs:
           cp -f Image.gz AnyKernel3
         fi
 
-        name=FlashableKernel-${{ github.event.inputs.CODENAME }}${{ fromJSON('["", "-KSU"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}.zip
+        name=FlashableKernel-${{ github.event.inputs.DEVICE_CODENAME }}${{ fromJSON('["", "-KSU"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}.zip
 
         cd AnyKernel3
         zip -q -r $name *
@@ -164,14 +173,14 @@ jobs:
         ls -al ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/
 
     - name: Upload to Release
-      if: ${{ github.event.inputs.UPLOAD_TO_RELEASE == 'true' }}
+      if: ${{ github.event.inputs.PUSH_TO_RELEASES == 'true' }}
       uses: softprops/action-gh-release@v1
       with:
         files: |
           ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image.gz-dtb
           ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image.gz
           ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/${{ steps.anykernel.outputs.zipname }}
-        name: ${{ github.event.inputs.CODENAME }}-${{ github.run_id }}
+        name: ${{ github.event.inputs.DEVICE_CODENAME }}-${{ github.run_id }}
         tag_name: ${{ github.run_id }}
         body: |
           <b>${{ steps.workspace.outputs.build_title }}</b>
@@ -184,19 +193,19 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - uses: actions/upload-artifact@v4
-      if: ${{ success() && github.event.inputs.UPLOAD_TO_RELEASE != 'true' }}
+      if: ${{ success() && github.event.inputs.PUSH_TO_RELEASES != 'true' }}
       with:
         name: Image.gz-dtb
         path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image.gz-dtb
 
     - uses: actions/upload-artifact@v4
-      if: ${{ success() && github.event.inputs.UPLOAD_TO_RELEASE != 'true' }}
+      if: ${{ success() && github.event.inputs.PUSH_TO_RELEASES != 'true' }}
       with:
         name: Image.gz
         path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image.gz
 
     - uses: actions/upload-artifact@v4
-      if: ${{ success() && github.event.inputs.ANYKERNEL_URL != '' && github.event.inputs.UPLOAD_TO_RELEASE != 'true' }}
+      if: ${{ success() && github.event.inputs.ANYKERNEL_URL != '' && github.event.inputs.PUSH_TO_RELEASES != 'true' }}
       with:
         name: ${{ steps.anykernel.outputs.zipname }}
         path: |
@@ -207,10 +216,10 @@ jobs:
     - name: Send Telegram notification for success
       uses: appleboy/telegram-action@master
       env: 
-        TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
-      if: ${{ success() && env.TELEGRAM_TO != '' && github.event.inputs.SEND_NOTIFICATION == 'true' }}
+        TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+      if: ${{ success() && env.TELEGRAM_CHAT != '' && github.event.inputs.SEND_NOTIFICATION == 'true' }}
       with:
-        to: ${{ secrets.TELEGRAM_TO }}
+        to: ${{ secrets.TELEGRAM_CHAT }}
         token: ${{ secrets.TELEGRAM_TOKEN }}
         disable_web_page_preview: true
         message: |
@@ -226,10 +235,10 @@ jobs:
     - name: Send Telegram notification for failure
       uses: appleboy/telegram-action@master
       env: 
-        TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
-      if: ${{ failure() && env.TELEGRAM_TO != '' && github.event.inputs.SEND_NOTIFICATION == 'true' }}
+        TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+      if: ${{ failure() && env.TELEGRAM_CHAT != '' && github.event.inputs.SEND_NOTIFICATION == 'true' }}
       with:
-        to: ${{ secrets.TELEGRAM_TO }}
+        to: ${{ secrets.TELEGRAM_CHAT }}
         token: ${{ secrets.TELEGRAM_TOKEN }}
         disable_web_page_preview: true
         message: |
