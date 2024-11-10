@@ -2,28 +2,26 @@
 
 ## Release Notes
 ```
-= 2024/01/29 - V1.2
-- correcting the path of flashable zip in action artifact
-- adding option to upload outputs into a release instead of artifact
-- add continue on error for "Send Telegram notification for failure" when it get failed to not getting failed run
+= 2024/11/10 - V1.2
+- Corrected the Clang URL and performed cleanups
 = 2024/01/14 - V1.1
-- Adding a step to showing user inputs
-- User input arranged
-- Codename in the name of the flashable zip
+- Introduced a step to display user inputs
+- Organized user inputs for better readability
+- Included the codename in the name of the flashable zip
 = 2024/01/12 - V1
-- The first available version is submitted.
+- Initial version submission
 ```
 -----
 
 ## Parameter Description
 | Name | Description | Example |
 | ------------ | -------------------- | ------------ |
-| `Custom Build Title` | Set a custom build title when senfing notification to the telegram | Platina 4.19 KSU |
-| `Send Notification` | Should send notification to telegram | ticked |
-| `Kernel Tree` | Kernel address | https://github.com/itisFarzin/kernel_xiaomi_sdm660 |
-| `Kernel Tree Branch` | Kernel branch | SW-3.2.7-KSU |
-| `Phone Codename` | Use to build kernel (**CODENAME**_defconfig) and in the notifications | platina |
-| `AnyKernel Url` | AnyKernel address | https://github.com/itisFarzin/AnyKernel3 |
-| `AnyKernel Branch` | AnyKernel branch | platina |
-| `Clang Version` | Clang version | clang-r510928 |
+| `Custom Build Title` | Customizes the build title for Telegram notifications | Platina 4.19 KSU |
+| `Send Notification` | Determines if a Telegram notification should be sent | ticked |
+| `Kernel Tree` | Specifies the kernel source repository | https://github.com/itisFarzin-Phone/kernel_xiaomi_sdm660 |
+| `Kernel Tree Branch` | Defines the kernel branch to use | SW-3.2.7-KSU |
+| `Phone Codename` | Utilized for building the kernel (**CODENAME**_defconfig) and in notifications | platina |
+| `AnyKernel Url` | Provides the AnyKernel repository URL | https://github.com/itisFarzin-Phone/AnyKernel3 |
+| `AnyKernel Branch` | Specifies the AnyKernel branch to use | platina |
+| `Clang Version` | Selects the Clang version for the build | clang-r510928 |
 -----

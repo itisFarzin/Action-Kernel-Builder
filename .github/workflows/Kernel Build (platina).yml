@@ -20,22 +20,22 @@ on:
         required: true
       ANYKERNEL_URL:
         description: 'AnyKernel Url (leave blank if you dont want AnyKernel)'
-        default: 'https://github.com/itisFarzin/AnyKernel3'
+        default: 'https://github.com/itisFarzin-Phone/AnyKernel3'
         required: false
       ANYKERNEL_BRANCH:
         description: 'AnyKernel Branch (defaults to codename)'
         required: false
       CLANG_VERSION:
         type: choice
-        description: Clang Version
+        description: 'Clang Version'
         default: 'clang-r510928'
         options: 
         - 'clang-3289846'
-        - 'clang-r450784e'
         - 'clang-r475365b'
         - 'clang-r487747c'
         - 'clang-r498229b'
         - 'clang-r510928'
+        - 'clang-r522817'
       SEND_NOTIFICATION:
         description: 'Send Notification'
         type: boolean
@@ -77,25 +77,17 @@ jobs:
         echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
         echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
         echo "kernelsu=${{ fromJSON('["No", "Yes"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}" >> $GITHUB_OUTPUT
-        if [[ -z "${{ github.event.inputs.BUILD_TITLE }}" ]]; then
-          echo "build_title=${{ github.event.inputs.CODENAME }}" >> $GITHUB_OUTPUT
-        else
-          echo "build_title=${{ github.event.inputs.BUILD_TITLE }}" >> $GITHUB_OUTPUT
-        fi
+        echo "build_title=${{ github.event.inputs.BUILD_TITLE || github.event.inputs.CODENAME }}" >> $GITHUB_OUTPUT
       id: workspace
 
     - name: Prepare the build environment
       run: |
-        sudo apt-get install flex
-        sudo apt-get install libncurses5
-        
+        sudo apt-get install flex libncurses5
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b android-msm-redbull-4.19-android14 --depth=1
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 -b android-msm-redbull-4.19-android14 --depth=1
-        
-        wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/${{ github.event.inputs.CLANG_VERSION }}.tar.gz -O clang.tar.gz
+        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-15.0.0_r5/${{ github.event.inputs.CLANG_VERSION }}.tar.gz -O clang.tar.gz
         mkdir clang
         tar -xf clang.tar.gz -C clang
-
         echo "tools-folder=$(pwd)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.workspace.outputs.workspace-folder }}
       id: tools
@@ -103,7 +95,6 @@ jobs:
     - name: Clone kernel source
       run: |
         git clone --depth=1 ${{ github.event.inputs.KERNEL_TREE }} -b ${{ github.event.inputs.KERNEL_TREE_BRANCH }} kernel_tree
-
         echo "kernel-folder=$(pwd)/kernel_tree" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.workspace.outputs.workspace-folder }}
       id: kernel
@@ -111,14 +102,12 @@ jobs:
     - name: Adding KernelSU
       if: ${{ steps.workspace.outputs.kernelsu == 'Yes' }}
       run: |
-        # Delete old KernelSU
         if [ -d "KernelSU" ]; then
           rm -rf "KernelSU"
         fi
         if [ -d "drivers/kernelsu" ]; then
           rm -rf "drivers/kernelsu"
         fi
-
         curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
       working-directory: ${{ steps.kernel.outputs.kernel-folder }}
 
@@ -127,21 +116,17 @@ jobs:
         export PATH="${{ steps.tools.outputs.tools-folder }}/aarch64-linux-android-4.9/bin:$PATH"
         export PATH="${{ steps.tools.outputs.tools-folder }}/arm-linux-androideabi-4.9/bin:$PATH"
         export PATH="${{ steps.tools.outputs.tools-folder }}/clang/bin:$PATH"
-        export LD_LIBRARY_PATH="${{ steps.tools.outputs.tools-folder }}/clang/lib64:$LD_LIBRARY_PATH"
-        export LD_LIBRARY_PATH="${{ steps.tools.outputs.tools-folder }}/clang/lib:$LD_LIBRARY_PATH"
-
+        export LD_LIBRARY_PATH="${{ steps.tools.outputs.tools-folder }}/clang/lib64:$LD_LIBRARY_PATH}"
+        export LD_LIBRARY_PATH="${{ steps.tools.outputs.tools-folder }}/clang/lib:$LD_LIBRARY_PATH}"
         export ARCH=arm64
         export SUBARCH=ARM64
         export CLANG_TRIPLE=aarch64-linux-gnu-
         export CROSS_COMPILE=aarch64-linux-android-
         export CROSS_COMPILE_ARM32=arm-linux-androideabi-
-
         export KBUILD_BUILD_USER="itisFarzin"
         export KBUILD_BUILD_HOST="Github"
-
         make O=out clean mrproper CC=clang ${{ github.event.inputs.CODENAME }}_defconfig 
         make O=out CC=clang -j$(nproc --all)
-
         echo "elapsed_time=$(echo "$(date +%s)"-"${{ steps.workspace.outputs.start_time }}" | bc)" >> $GITHUB_OUTPUT
       working-directory: ${{ steps.kernel.outputs.kernel-folder }}
       id: build
@@ -156,15 +141,18 @@ jobs:
           anykernel_branch=${{ github.event.inputs.ANYKERNEL_BRANCH }}
         fi
         git clone --recursive --depth=1 ${{ github.event.inputs.ANYKERNEL_URL }} -b $anykernel_branch AnyKernel3
-
         if [ -e "Image.gz-dtb" ]; then
           cp -f Image.gz-dtb AnyKernel3
+        elif [ -e "Image-dtb" ]; then
+          cp -f Image-dtb AnyKernel3
         elif [ -e "Image.gz" ]; then
           cp -f Image.gz AnyKernel3
+          echo "Warning: Don't forget about dtb."
+        elif [ -e "Image" ]; then
+          cp -f Image AnyKernel3
+          echo "Warning: Don't forget about dtb."
         fi
-
         name=FlashableKernel-${{ github.event.inputs.CODENAME }}${{ fromJSON('["", "-KSU"]')[fromJSON(github.event.inputs.ENABLE_KERNELSU)] }}.zip
-
         cd AnyKernel3
         zip -q -r $name *
         mv $name ../
@@ -182,7 +170,9 @@ jobs:
       with:
         files: |
           ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image.gz-dtb
+          ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image-dtb
           ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image.gz
+          ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image
           ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/${{ steps.anykernel.outputs.zipname }}
         name: ${{ github.event.inputs.CODENAME }}-${{ github.run_id }}
         tag_name: ${{ github.run_id }}
@@ -205,8 +195,20 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: ${{ success() && github.event.inputs.UPLOAD_TO_RELEASE != 'true' }}
       with:
+        name: Image-dtb
+        path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image-dtb
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ success() && github.event.inputs.UPLOAD_TO_RELEASE != 'true' }}
+      with:
         name: Image.gz
         path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image.gz
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ success() && github.event.inputs.UPLOAD_TO_RELEASE != 'true' }}
+      with:
+        name: Image
+        path: ${{ steps.kernel.outputs.kernel-folder }}/out/arch/arm64/boot/Image
 
     - uses: actions/upload-artifact@v4
       if: ${{ success() && github.event.inputs.ANYKERNEL_URL != '' && github.event.inputs.UPLOAD_TO_RELEASE != 'true' }}
